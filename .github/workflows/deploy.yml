@@ -5,54 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata for Docker image
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,27 +22,33 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Create deployment script
+      - name: Deploy to server
         run: |
-          cat > /tmp/deploy.sh << 'SCRIPT'
-          #!/bin/bash
+          scp -o StrictHostKeyChecking=no -r . ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/my-blog-deploy
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
           set -e
-
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          
+          PROJECT_DIR=~/my-blog-deploy
           CONTAINER_NAME="my-blog"
-
-          echo "=== 登录 GitHub Container Registry ==="
-          echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           echo "=== 停止并删除旧容器 ==="
           docker stop $CONTAINER_NAME 2>/dev/null || true
           docker rm $CONTAINER_NAME 2>/dev/null || true
 
-          echo "=== 拉取最新镜像 ==="
-          docker pull $IMAGE
+          echo "=== 备份数据 ==="
+          if [ -d ~/my-blog/prisma ]; then
+            cp -r ~/my-blog/prisma ~/my-blog-deploy/prisma_backup 2>/dev/null || true
+          fi
+
+          echo "=== 构建新镜像 ==="
+          cd $PROJECT_DIR
+          docker build -t my-blog:latest .
 
           echo "=== 创建数据目录 ==="
           mkdir -p ~/my-blog/prisma
+          if [ -d ~/my-blog/prisma_backup ]; then
+            cp -r ~/my-blog/prisma_backup/* ~/my-blog/prisma/ 2>/dev/null || true
+          fi
 
           echo "=== 启动新容器 ==="
           docker run -d \
@@ -98,14 +58,11 @@ jobs:
             --restart unless-stopped \
             -e NODE_ENV=production \
             -e DATABASE_URL="file:/app/prisma/dev.db" \
-            $IMAGE
+            my-blog:latest
+
+          echo "=== 清理构建目录 ==="
+          rm -rf ~/my-blog-deploy
 
           echo "=== 部署完成 ==="
           docker logs $CONTAINER_NAME
-          SCRIPT
-          chmod +x /tmp/deploy.sh
-
-      - name: Deploy to server
-        run: |
-          scp -o StrictHostKeyChecking=no /tmp/deploy.sh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/deploy.sh
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "chmod +x /tmp/deploy.sh && /tmp/deploy.sh"
+          ENDSSH
