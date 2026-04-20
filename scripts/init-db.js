@@ -18,7 +18,7 @@ async function initDatabase() {
           passwordHash 
         } 
       })
-     console.log('Default admin created: username=admin, password=admin123')
+      console.log('Default admin created')
     } else {
       console.log('Admin user already exists')
     }
