@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { Edit, Trash2, Plus, CheckCircle, XCircle, Download, Upload, Eye, X } from 'lucide-react'
+import { Edit, Trash2, Plus, CheckCircle, XCircle, Download, Upload, Eye, X, Settings } from 'lucide-react'
 import JSZip from 'jszip'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -41,6 +41,13 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const importInputRef = useRef<HTMLInputElement>(null)
   const { error, success } = useToast()
+  
+  // 修改密码相关状态
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   // 自定义markdown组件样式
   const markdownComponents: Partial<Components> = {
@@ -320,7 +327,7 @@ export default function DashboardPage() {
   return (
     <div>
       {/* 快捷操作卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -358,6 +365,19 @@ export default function DashboardPage() {
             <Link href="/admin/post/bulk-upload">
               <Button>批量上传</Button>
             </Link>
+          </div>
+        </Card>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">设置</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                修改密码和账号设置
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setPasswordModalOpen(true)}>
+              <Settings size={18} />
+            </Button>
           </div>
         </Card>
       </div>
@@ -632,6 +652,122 @@ export default function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {/* 修改密码弹窗 */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-[90vw] max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">修改密码</h2>
+              <button
+                onClick={() => {
+                  setPasswordModalOpen(false)
+                  setCurrentPassword('')
+                  setNewPassword('')
+                  setConfirmPassword('')
+                }}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  当前密码
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="请输入当前密码"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  新密码
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="请输入新密码（至少6位）"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  确认新密码
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="请再次输入新密码"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPasswordModalOpen(false)
+                    setCurrentPassword('')
+                    setNewPassword('')
+                    setConfirmPassword('')
+                  }}
+                  className="flex-1"
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!currentPassword || !newPassword || !confirmPassword) {
+                      error('请填写所有字段')
+                      return
+                    }
+                    if (newPassword.length < 6) {
+                      error('新密码长度至少6位')
+                      return
+                    }
+                    if (newPassword !== confirmPassword) {
+                      error('两次输入的新密码不一致')
+                      return
+                    }
+                    setChangingPassword(true)
+                    try {
+                      const res = await fetch('/api/user/password', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ currentPassword, newPassword })
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        success('密码修改成功')
+                        setPasswordModalOpen(false)
+                        setCurrentPassword('')
+                        setNewPassword('')
+                        setConfirmPassword('')
+                      } else {
+                        error(data.error || '修改密码失败')
+                      }
+                    } catch (err) {
+                      error('修改密码失败，请重试')
+                    } finally {
+                      setChangingPassword(false)
+                    }
+                  }}
+                  disabled={changingPassword}
+                  className="flex-1"
+                >
+                  {changingPassword ? '修改中...' : '确认修改'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
