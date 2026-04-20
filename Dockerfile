@@ -21,11 +21,7 @@ ENV DATABASE_URL="file:/app/prisma/dev.db"
 # 生成 Prisma Client
 RUN npx prisma generate
 
-# 创建并初始化数据库（执行迁移和 seed）
-COPY scripts/init-db.js ./scripts/init-db.js
-RUN npx prisma db push && node scripts/init-db.js
-
-# 构建应用
+# 构建应用（不执行 db push，数据库在运行时创建）
 RUN npm run build
 
 # 生产运行阶段
@@ -47,15 +43,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/node_modules ./node_modules
 
-# 给数据库文件 root 权限（因为我们用 root 运行）
-RUN chown root:root /app/prisma/dev.db && chmod 666 /app/prisma/dev.db
-
-# USER nextjs
-# 使用 root 运行彻底解决权限问题
+# 创建空的数据库文件
+RUN touch /app/prisma/dev.db && chmod 666 /app/prisma/dev.db
 
 EXPOSE 3000
 
 ENV PORT 3000
 
-# 容器启动时初始化数据库（如果没有管理员账号则创建）
-CMD ["sh", "-c", "node scripts/init-db.js && node server.js"]
+# 容器启动时初始化数据库
+CMD ["sh", "-c", "npx prisma db push && node scripts/init-db.js && node server.js"]
