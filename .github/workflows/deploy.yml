@@ -24,6 +24,7 @@ jobs:
 
       - name: Deploy to server
         run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf ~/my-blog-deploy"
           scp -o StrictHostKeyChecking=no -r . ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/my-blog-deploy
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
           set -e
