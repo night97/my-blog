@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  @apply bg-gray-50 text-gray-800 font-sans dark:bg-gray-900 dark:text-gray-200;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Markdown 样式 */
+.prose h1 {
+  @apply text-3xl font-bold mt-8 mb-4 dark:text-white;
+}
+
+.prose h2 {
+  @apply text-2xl font-bold mt-7 mb-3 dark:text-white;
+}
+
+.prose h3 {
+  @apply text-xl font-bold mt-6 mb-2 dark:text-white;
+}
+
+.prose p {
+  @apply my-4 leading-relaxed dark:text-gray-300;
+}
+
+.prose a {
+  @apply text-primary underline hover:text-primary/80 transition-colors;
+}
+
+.prose ul {
+  @apply list-disc pl-6 my-4 dark:text-gray-300;
+}
+
+.prose ol {
+  @apply list-decimal pl-6 my-4 dark:text-gray-300;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-6 text-gray-600 dark:border-gray-600 dark:text-gray-400;
+}
+
+.prose code {
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono dark:bg-gray-800 dark:text-gray-200;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-6 dark:bg-gray-800;
+}
+
+.prose pre code {
+  @apply bg-transparent px-0 py-0 text-inherit;
+}
+
+.prose hr {
+  @apply my-8 border-gray-200 dark:border-gray-700;
+}
+
+.prose img {
+  @apply my-6 rounded-lg max-w-full;
+}
+
+/* Toast 动画 */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}

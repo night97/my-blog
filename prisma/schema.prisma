@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  posts        Post[]
+  collections  Collection[]
+}
+
+model Post {
+  id           Int               @id @default(autoincrement())
+  title        String
+  slug         String            @unique
+  excerpt      String?
+  content      String
+  published    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  authorId     Int?
+  author       User?             @relation(fields: [authorId], references: [id])
+  collections  CollectionPost[]
+  tags         Tag[]             @relation("PostTags")
+}
+
+model Collection {
+  id          Int               @id @default(autoincrement())
+  name        String
+  slug        String            @unique
+  description String?
+  cover       String?
+  published   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  authorId    Int?
+  author      User?             @relation(fields: [authorId], references: [id])
+  posts       CollectionPost[]
+}
+
+model CollectionPost {
+  id           Int           @id @default(autoincrement())
+  collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId Int
+  post         Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId       Int
+  position     Int
+  createdAt    DateTime      @default(now())
+
+  @@unique([collectionId, postId])
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  posts     Post[]    @relation("PostTags")
+}

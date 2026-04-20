@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  blog:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: my-blog
+    ports:
+      - "80:3000"
+    volumes:
+      # 持久化 SQLite 数据库
+      - ./prisma:/app/prisma
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/prisma/dev.db
+    restart: unless-stopped
+
