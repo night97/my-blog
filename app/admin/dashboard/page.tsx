@@ -744,11 +744,15 @@ export default function DashboardPage() {
                       })
                       const data = await res.json()
                       if (res.ok) {
-                        success('密码修改成功')
+                        success('密码修改成功，即将跳转到登录页面')
                         setPasswordModalOpen(false)
                         setCurrentPassword('')
                         setNewPassword('')
                         setConfirmPassword('')
+                        // 延迟跳转到登录页面，让用户看到成功提示
+                        setTimeout(() => {
+                          router.push('/admin/login')
+                        }, 1500)
                       } else {
                         error(data.error || '修改密码失败')
                       }

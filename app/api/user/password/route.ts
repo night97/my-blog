@@ -8,7 +8,7 @@ const prisma = new PrismaClient()
 export async function PUT(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const sessionCookie = cookieStore.get('session')
+    const sessionCookie = cookieStore.get('blog-admin-session')
     
     if (!sessionCookie) {
       return NextResponse.json({ error: '未登录' }, { status: 401 })
@@ -25,9 +25,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // 获取当前用户
-    const session = JSON.parse(sessionCookie.value)
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId }
+    const user = await prisma.user.findFirst({
+      where: { username: 'admin' }
     })
 
     if (!user) {
@@ -47,7 +46,10 @@ export async function PUT(request: NextRequest) {
       data: { passwordHash: newPasswordHash }
     })
 
-    return NextResponse.json({ success: true })
+    // 清除 session cookie，强制重新登录
+    cookieStore.delete('blog-admin-session')
+
+    return NextResponse.json({ success: true, redirect: '/admin/login' })
   } catch (error) {
     console.error('修改密码失败:', error)
     return NextResponse.json({ error: '服务器错误' }, { status: 500 })
