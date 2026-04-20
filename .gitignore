@@ -40,3 +40,6 @@ next-env.d.ts
 # images
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# GitHub Actions (不能用 !.github 语法，只能强制添加)
+/!.github/
