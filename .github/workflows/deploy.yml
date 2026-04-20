@@ -38,8 +38,15 @@ jobs:
           docker stop $CONTAINER_NAME 2>/dev/null || true
           docker rm $CONTAINER_NAME 2>/dev/null || true
 
-          echo "=== 备份数据库 ==="
+          echo "=== 清理错误数据 ==="
           mkdir -p $DATA_DIR
+          # 如果 dev.db 是目录而不是文件，删除它
+          if [ -d "$DB_FILE" ]; then
+            rm -rf $DB_FILE
+            echo "已删除错误的数据库目录"
+          fi
+
+          echo "=== 备份数据库 ==="
           if [ -f "$DB_FILE" ]; then
             cp $DB_FILE $DATA_DIR/dev.db.bak
             echo "数据库已备份"
