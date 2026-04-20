@@ -30,38 +30,43 @@ jobs:
           
           PROJECT_DIR=~/my-blog-deploy
           CONTAINER_NAME="my-blog"
+          DATA_DIR=~/my-blog/prisma
+          DB_FILE="$DATA_DIR/dev.db"
 
           echo "=== 停止并删除旧容器 ==="
           docker stop $CONTAINER_NAME 2>/dev/null || true
           docker rm $CONTAINER_NAME 2>/dev/null || true
 
-          echo "=== 备份数据 ==="
-          if [ -d ~/my-blog/prisma ]; then
-            cp -r ~/my-blog/prisma ~/my-blog-deploy/prisma_backup 2>/dev/null || true
+          echo "=== 备份数据库 ==="
+          mkdir -p $DATA_DIR
+          if [ -f "$DB_FILE" ]; then
+            cp $DB_FILE $DATA_DIR/dev.db.bak
+            echo "数据库已备份"
           fi
 
           echo "=== 构建新镜像 ==="
           cd $PROJECT_DIR
           docker build -t my-blog:latest .
 
-          echo "=== 创建数据目录 ==="
-          mkdir -p ~/my-blog/prisma
-          if [ -d ~/my-blog/prisma_backup ]; then
-            cp -r ~/my-blog/prisma_backup/* ~/my-blog/prisma/ 2>/dev/null || true
+          echo "=== 恢复数据库 ==="
+          if [ -f $DATA_DIR/dev.db.bak ]; then
+            cp $DATA_DIR/dev.db.bak $DB_FILE
+            echo "数据库已恢复"
           fi
 
-          echo "=== 启动新容器 ==="
+          echo "=== 启动新容器（只挂载数据库文件） ==="
           docker run -d \
             --name $CONTAINER_NAME \
             -p 80:3000 \
-            -v ~/my-blog/prisma:/app/prisma \
+            -v $DB_FILE:/app/prisma/dev.db \
             --restart unless-stopped \
             -e NODE_ENV=production \
             -e DATABASE_URL="file:/app/prisma/dev.db" \
             my-blog:latest
 
-          echo "=== 清理构建目录 ==="
+          echo "=== 清理构建目录和备份 ==="
           rm -rf ~/my-blog-deploy
+          rm -f $DATA_DIR/dev.db.bak
 
           echo "=== 部署完成 ==="
           docker logs $CONTAINER_NAME
