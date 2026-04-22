@@ -24,57 +24,32 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf ~/my-blog-deploy"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf ~/my-blog-deploy && rm -rf ~/my-blog/prisma/dev.db"
           scp -o StrictHostKeyChecking=no -r . ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/my-blog-deploy
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
           set -e
           
           PROJECT_DIR=~/my-blog-deploy
           CONTAINER_NAME="my-blog"
-          DATA_DIR=~/my-blog/prisma
-          DB_FILE="$DATA_DIR/dev.db"
 
           echo "=== 停止并删除旧容器 ==="
           docker stop $CONTAINER_NAME 2>/dev/null || true
           docker rm $CONTAINER_NAME 2>/dev/null || true
 
-          echo "=== 清理错误数据 ==="
-          mkdir -p $DATA_DIR
-          # 如果 dev.db 是目录而不是文件，删除它
-          if [ -d "$DB_FILE" ]; then
-            rm -rf $DB_FILE
-            echo "已删除错误的数据库目录"
-          fi
-
-          echo "=== 备份数据库 ==="
-          if [ -f "$DB_FILE" ]; then
-            cp $DB_FILE $DATA_DIR/dev.db.bak
-            echo "数据库已备份"
-          fi
-
           echo "=== 构建新镜像 ==="
           cd $PROJECT_DIR
           docker build -t my-blog:latest .
 
-          echo "=== 恢复数据库 ==="
-          if [ -f $DATA_DIR/dev.db.bak ]; then
-            cp $DATA_DIR/dev.db.bak $DB_FILE
-            echo "数据库已恢复"
-          fi
-
-          echo "=== 启动新容器（只挂载数据库文件） ==="
+          echo "=== 启动新容器 ==="
           docker run -d \
             --name $CONTAINER_NAME \
             -p 80:3000 \
-            -v $DB_FILE:/app/prisma/dev.db \
             --restart unless-stopped \
             -e NODE_ENV=production \
-            -e DATABASE_URL="file:/app/prisma/dev.db" \
             my-blog:latest
 
-          echo "=== 清理构建目录和备份 ==="
+          echo "=== 清理构建目录 ==="
           rm -rf ~/my-blog-deploy
-          rm -f $DATA_DIR/dev.db.bak
 
           echo "=== 部署完成 ==="
           docker logs $CONTAINER_NAME
