@@ -24,16 +24,22 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf ~/my-blog-deploy && rm -rf ~/my-blog/prisma/dev.db"
           scp -o StrictHostKeyChecking=no -r . ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/my-blog-deploy
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
           set -e
           
           PROJECT_DIR=~/my-blog-deploy
           CONTAINER_NAME="my-blog"
+          BACKUP_FILE="/tmp/my-blog-db-backup-$(date +%Y%m%d%H%M%S).db"
 
-          echo "=== 停止并删除旧容器 ==="
+          echo "=== 备份当前数据库（如果容器存在） ==="
           docker stop $CONTAINER_NAME 2>/dev/null || true
+          if docker inspect $CONTAINER_NAME &>/dev/null; then
+            docker cp $CONTAINER_NAME:/app/prisma/dev.db $BACKUP_FILE 2>/dev/null || true
+            echo "数据库已备份到: $BACKUP_FILE"
+          fi
+
+          echo "=== 删除旧容器 ==="
           docker rm $CONTAINER_NAME 2>/dev/null || true
 
           echo "=== 构建新镜像 ==="
@@ -48,8 +54,15 @@ jobs:
             -e NODE_ENV=production \
             my-blog:latest
 
-          echo "=== 清理构建目录 ==="
+          echo "=== 恢复数据库（如果备份存在） ==="
+          if [ -f "$BACKUP_FILE" ]; then
+            docker cp $BACKUP_FILE $CONTAINER_NAME:/app/prisma/dev.db 2>/dev/null || true
+            echo "数据库已恢复"
+          fi
+
+          echo "=== 清理构建目录和备份 ==="
           rm -rf ~/my-blog-deploy
+          rm -f $BACKUP_FILE
 
           echo "=== 部署完成 ==="
           docker logs $CONTAINER_NAME
